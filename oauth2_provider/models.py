@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
 from django.core.urlresolvers import reverse
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from django.utils.translation import ugettext_lazy as _
@@ -12,6 +12,9 @@ from .settings import oauth2_settings
 from .compat import AUTH_USER_MODEL, parse_qsl, urlparse, get_model
 from .generators import generate_client_secret, generate_client_id
 from .validators import validate_uris
+from datetime import timedelta
+
+from django.utils.translation import ugettext_lazy as _
 
 
 @python_2_unicode_compatible
@@ -266,3 +269,17 @@ def get_application_model():
         e = "APPLICATION_MODEL refers to model {0} that has not been installed"
         raise ImproperlyConfigured(e.format(oauth2_settings.APPLICATION_MODEL))
     return app_model
+
+def clear_expired():
+    REFRESH_TOKEN_EXPIRE_SECONDS = oauth2_settings.REFRESH_TOKEN_EXPIRE_SECONDS
+    if not isinstance(REFRESH_TOKEN_EXPIRE_SECONDS, timedelta):
+        REFRESH_TOKEN_EXPIRE_SECONDS = timedelta(seconds=REFRESH_TOKEN_EXPIRE_SECONDS)
+    now = timezone.now()
+    with transaction.atomic():
+        if REFRESH_TOKEN_EXPIRE_SECONDS:
+            refresh_expire_date = now - REFRESH_TOKEN_EXPIRE_SECONDS
+            for tks in RefreshToken.objects.filter(access_token__expires__lt=refresh_expire_date):
+                tks.revoke()
+        for tks in AccessToken.objects.filter(refresh_token__isnull=True, expires__lt=now):
+            tks.revoke()
+        Grant.objects.filter(expires__lt=now).delete()

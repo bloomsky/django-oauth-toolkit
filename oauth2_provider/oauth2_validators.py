@@ -290,12 +290,12 @@ class OAuth2Validator(RequestValidator):
         Save access and refresh token, If refresh token is issued, remove old refresh tokens as
         in rfc:`6`
         """
-        if request.refresh_token:
-            # remove used refresh token
-            try:
-                RefreshToken.objects.get(token=request.refresh_token).revoke()
-            except RefreshToken.DoesNotExist:
-                assert()  # TODO though being here would be very strange, at least log the error
+        # if request.refresh_token:
+        #     # remove used refresh token
+        #     try:
+        #         RefreshToken.objects.get(token=request.refresh_token).revoke()
+        #     except RefreshToken.DoesNotExist:
+        #         assert()  # TODO though being here would be very strange, at least log the error
 
         expires = timezone.now() + timedelta(seconds=oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS)
         if request.grant_type == 'client_credentials':
